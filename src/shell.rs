@@ -22,6 +22,7 @@ pub struct Shell {
     cursor_pos: usize,
     history_index: Option<usize>,
     completion: Completion,
+    prediction_shown: bool,
 }
 
 impl Shell {
@@ -33,6 +34,7 @@ impl Shell {
             cursor_pos: 0,
             history_index: None,
             completion: Completion::new(),
+            prediction_shown: false,
         })
     }
 
@@ -232,6 +234,9 @@ impl Shell {
                         self.current_input.insert(self.cursor_pos, c);
                         self.cursor_pos += 1;
                         UI::redraw_line(&self.config, &self.current_input, self.cursor_pos)?;
+                        if (self.cursor_pos == self.current_input.len()) {
+                            self.handle_tab_completion_prediction()?;
+                        }
                     }
                     _ => {}
                 }
@@ -299,13 +304,45 @@ impl Shell {
                 .apply(&mut self.current_input, &mut self.cursor_pos)?;
         } else {
             // Cycle to next completion
-            self.completion.cycle_next();
+            if (!self.prediction_shown) {
+                self.completion.cycle_next();
+            } else {
+                self.prediction_shown = false;
+            }
             self.completion
                 .apply(&mut self.current_input, &mut self.cursor_pos)?;
         }
 
         // Redraw the line
         UI::redraw_line(&self.config, &self.current_input, self.cursor_pos)?;
+        Ok(())
+    }
+
+    fn handle_tab_completion_prediction(&mut self) -> Result<()> {
+        let prediction: Option<String> = if self.completion.is_empty() {
+            // Generate completions
+            self.completion.generate(
+                &self.current_input,
+                self.cursor_pos,
+                &self.config,
+                &self.history,
+            );
+            if self.completion.is_empty() {
+                return Ok(());
+            }
+
+            self.completion.start(&self.current_input, self.cursor_pos);
+            self.completion.get_prediction()
+        } else {
+            self.completion.get_prediction()
+        };
+        UI::redraw_prediction(
+            &self.config,
+            &self.current_input,
+            prediction.clone(),
+            self.cursor_pos,
+        )?;
+        self.prediction_shown = prediction.is_some();
         Ok(())
     }
 

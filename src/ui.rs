@@ -6,6 +6,7 @@ use crossterm::{
     terminal::{self, ClearType},
 };
 use std::io::{Write, stdout};
+use crate::utils::Utils;
 
 pub struct UI;
 
@@ -61,6 +62,31 @@ impl UI {
             terminal::Clear(ClearType::FromCursorDown)
         )?;
         Self::display_prompt(config, current_input, cursor_pos)?;
+        Ok(())
+    }
+
+    pub fn redraw_prediction(config: &Config, current_input: &str, prediction: Option<String>, cursor_pos: usize) -> Result<()> {
+        execute!(
+            stdout(),
+            Print("\r"), // Move to the start of the line
+            cursor::MoveToColumn(0),
+            terminal::Clear(ClearType::FromCursorDown)
+        )?;
+        Self::display_prompt(config, current_input, current_input.len())?;
+
+        if let Some(pred) = prediction.clone() {
+            if config.enable_colors {
+                execute!(
+                    stdout(),
+                    SetForegroundColor(Color::DarkGrey),
+                    Print((&pred).trim_start_matches(current_input).trim_end()),
+                    ResetColor
+                )?;
+                execute!(stdout(), cursor::MoveToColumn((Utils::format_prompt(&config.prompt).len() + current_input.len() - 2) as u16))?;
+            }
+        }
+
+        stdout().flush()?;
         Ok(())
     }
 

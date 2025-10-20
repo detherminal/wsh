@@ -81,6 +81,15 @@ impl Completion {
         Ok(())
     }
 
+    pub fn get_prediction(&self) -> Option<String> {
+        if let Some(index) = self.completion_index {
+            if let Some(completion) = self.completions.get(index) {
+                return Some(completion.clone());
+            }
+        }
+        None
+    }
+
     pub fn cycle_next(&mut self) {
         if let Some(current_index) = self.completion_index {
             let next_index = (current_index + 1) % self.completions.len();
